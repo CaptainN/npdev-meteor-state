@@ -1,10 +1,10 @@
 /* global Package Npm */
 Package.describe({
   name: 'npdev:meteor-react-state',
-  summary: 'A React hook for state which survives hot code push',
+  summary: 'A set of React hooks for managing state in Meteor apps which survives hot code push',
   version: '0.9.0',
   documentation: 'README.md',
-  git: 'https://github.com/meteor/react-packages'
+  git: 'https://github.com/CaptainN/npdev-meteor-state'
 })
 
 Package.onUse(function (api) {
