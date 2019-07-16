@@ -48,7 +48,7 @@ const MyComponent = () => {
 }
 ```
 
-For more advanced uses of ReactiveDict - accessing it's various methods like `.equals` and `.all`, you may want to work with a ReactiveVar instance directly. You can use `useReactiveVar` for that:
+For more advanced uses of ReactiveDict - accessing it's various methods like `.equals` and `.all`, you may want to work with a ReactiveDict instance directly. You can use `useReactiveDict` for that:
 
 ```js
 // Using SessionProvider
