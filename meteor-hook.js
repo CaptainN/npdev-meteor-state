@@ -94,8 +94,7 @@ function useTracker (reactiveFn, deps) {
     refs.computation = Tracker.nonreactive(() => (
       Tracker.autorun((c) => {
         const runReactiveFn = () => {
-          // preserve `this` and pass the current computation to the reactiveFn
-          const data = reactiveFn.call(this, c)
+          const data = reactiveFn()
           if (Meteor.isDevelopment) checkCursor(data)
           refs.trackerData = data
         }
