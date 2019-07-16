@@ -3,6 +3,9 @@ NPDev:Meteor-State
 
 This is a simple package which provides a few small hooks for use with React in Meteor projects. The main hook, `useMeteorState` uses ReactiveDict behind the scenes, to provide a state hook which works like React's built in `useState`, but retains that state during a hot code push (HCP) event.
 
+Basic Usage
+-----------
+
 ```js
 import { useMeteorState } from 'npdev:meteor-react-state'
 
@@ -47,6 +50,9 @@ const MyComponent = () => {
   </div>
 }
 ```
+
+Advanced Usage
+--------------
 
 For more advanced uses of ReactiveDict - accessing it's various methods like `.equals` and `.all`, you may want to work with a ReactiveDict instance directly. You can use `useReactiveDict` for that:
 
