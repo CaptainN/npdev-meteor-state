@@ -72,3 +72,5 @@ export const useSessionVar = (key, defaultValue) => {
   }
   return useReactiveDictVar(sessionDict, key, defaultValue)
 }
+
+export { useTracker }
