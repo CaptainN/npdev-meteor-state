@@ -3,30 +3,19 @@ NPDev:Meteor-State
 
 This is a simple package which provides a few small hooks for use with React in Meteor projects. The main hook, `useMeteorState` uses ReactiveDict behind the scenes, to provide a state hook which works like React's built in `useState`, but retains that state during a hot code push (HCP) event.
 
-This is actually achievable without using a special hook, and just using a ReactiveDict directly, but it is cumbersome, as there is some stuff to keep track of.
-
 ```js
-// example just using ReactiveDict
-const { current: dict } = useRef(new ReactiveDict('test', { value: 'value' }))
-const value = useTracker(() => {
-  return dict.get('value')
-})
-// Don't forget to clean it up on unmount
-useEffect(() => () => dict.destroy(), [])
-// here is how to set the value, in a handler or something
-dict.set('value', 'other')
-
-// with useMeteorState - much simpler
 import { useMeteorState } from 'npdev:meteor-react-state'
+
 // setting a name is required by ReactiveDict for persistance
 const [value, setValue] = useMeteorState('test', 'default value')
- // this value will survive HCP!
+
+// this value will survive HCP!
 setValue('another value')
 ```
 
-One caveat is that the name of the state variable you send to useMeteorState must be globally unique. It'll throw an error if you try to reuse a name.
+One caveat is that the name of the state variable you send to useMeteorState must be globally unique. It'll throw an error if you try to reuse a name. Any value stored with `useMeteorState`, should be EJSONable.
 
-You can also use a session like state manager, which requires a provider. This is similar to redux, without the reducer pattern. It also uses ReactiveDict, and therefor survives hot-code-push.
+You can also use a session like state manager, which requires a provider, but unlike Meteor's `session` package works server side in SSR. Just like Meteor's `sessoin`, it also uses ReactiveDict, and therefor survives hot-code-push.
 
 ```js
 // wrap your app with the Session provider
@@ -59,7 +48,7 @@ const MyComponent = () => {
 }
 ```
 
-For more advanced uses of ReactiveDict, such as referencing it's various methods like `.equals` and `.all` you may want to work with a ReactiveVar instance directly. You can use `useReactiveVar` for that:
+For more advanced uses of ReactiveDict - accessing it's various methods like `.equals` and `.all`, you may want to work with a ReactiveVar instance directly. You can use `useReactiveVar` for that:
 
 ```js
 // Using SessionProvider
@@ -80,6 +69,22 @@ const MyComponent = () => {
     <div>{values.key}</div>
   </div>
 }
+```
+
+Just for completeness, here is an example of using ReactiveDict, without this package:
+
+```js
+// example using ReactiveDict with vanilla React hooks
+const { current: dict } = useRef(new ReactiveDict('test', { value: 'value' }))
+const value = useTracker(() => {
+  return dict.get('value')
+})
+
+// Don't forget to clean it up on unmount
+useEffect(() => () => dict.destroy(), [])
+
+// here is how to set the value, in a handler or something
+dict.set('value', 'other')
 ```
 
 [For more about ReactiveDict, see Meteor's documentation](https://docs.meteor.com/api/reactive-dict.html).
