@@ -1,5 +1,5 @@
 /* global Meteor, Package, Tracker */
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useReducer, useEffect, useRef } from 'react'
 
 // Use React.warn() if available (should ship in React 16.9).
 const warn = React.warn || console.warn.bind(console)
@@ -42,7 +42,17 @@ function is (x, y) {
 // used to replicate dep change behavior and stay consistent
 // with React.useEffect()
 function areHookInputsEqual (nextDeps, prevDeps) {
-  if (!nextDeps || !prevDeps) {
+  if (prevDeps === null || prevDeps === undefined || !Array.isArray(prevDeps)) {
+    return false
+  }
+
+  if (!Array.isArray(nextDeps)) {
+    if (Meteor.isDevelopment) {
+      warn(
+        'Warning: useTracker expected an dependency value of ' +
+        `type array but got type of ${typeof nextDeps} instead.`
+      )
+    }
     return false
   }
 
@@ -61,12 +71,14 @@ function areHookInputsEqual (nextDeps, prevDeps) {
   return true
 }
 
-let uniqueCounter = 0
+// Used to create a forceUpdate from useReducer. Forces update by
+// incrementing a number whenever the dispatch method is invoked.
+const fur = x => x + 1
 
 function useTracker (reactiveFn, deps) {
   const { current: refs } = useRef({})
 
-  const [, forceUpdate] = useState()
+  const [, forceUpdate] = useReducer(fur, 0)
 
   const dispose = () => {
     if (refs.computation) {
@@ -105,13 +117,13 @@ function useTracker (reactiveFn, deps) {
           runReactiveFn()
         } else {
           // If deps are falsy, stop computation and let next render handle reactiveFn.
-          if (!refs.previousDeps) {
+          if (!refs.previousDeps !== null && refs.previousDeps !== undefined &&
+            !Array.isArray(refs.previousDeps)) {
             dispose()
           } else {
             runReactiveFn()
           }
-          // use a uniqueCounter to trigger a state change to force a re-render
-          forceUpdate(++uniqueCounter)
+          forceUpdate()
         }
       })
     ))
@@ -136,8 +148,8 @@ function useTracker (reactiveFn, deps) {
 
 // When rendering on the server, we don't want to use the Tracker.
 // We only do the first rendering on the server so we can get the data right away
-function useTrackerServer (reactiveFn, deps) {
-  return Meteor.bindEnvironment(reactiveFn)()
+function useTrackerServer (reactiveFn) {
+  return reactiveFn()
 }
 
 export default (Meteor.isServer ? useTrackerServer : useTracker)
