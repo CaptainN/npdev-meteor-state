@@ -13,8 +13,8 @@ import {
 } from './main'
 
 Tinytest.add('useReactiveDict', async function (test) {
-  const { result, rerender, unmount, waitForNextUpdate } = renderHook(({ name }) =>
-    useReactiveDict(name, { key: 1 }),
+  const { result, rerender, unmount, waitForNextUpdate } = renderHook(
+    ({ name }) => useReactiveDict(name, { key: 1 }),
     { initialProps: { name: 'test1' } }
   )
 

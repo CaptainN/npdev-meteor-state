@@ -1,8 +1,9 @@
+/* global Meteor */
 import React, { useRef, useEffect, useContext, createContext } from 'react'
 import useTracker from './meteor-hook'
 import { ReactiveDict } from 'meteor/reactive-dict'
 
-const warn = React.warn || console.warn
+const warn = React.warn || console.warn.bind(console)
 
 // Creates a React lifecycle bound ReactiveDict instance, based
 // on the name argument. If the name changes, the ReactiveDict

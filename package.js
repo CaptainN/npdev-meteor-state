@@ -1,4 +1,4 @@
-/* global Package Npm */
+/* global Package */
 Package.describe({
   name: 'npdev:meteor-react-state',
   summary: 'A set of React hooks for managing state in Meteor apps which survives hot code push',
@@ -14,7 +14,7 @@ Package.onUse(function (api) {
 })
 
 Package.onTest(function (api) {
-  api.use(['ecmascript', 'reactive-dict', 'tracker', 'tinytest'])
+  api.use(['ecmascript', 'reactive-dict', 'tracker', 'tinytest', 'test-helpers'])
   api.use('npdev:meteor-react-state')
   api.mainModule('tests.js')
 })
