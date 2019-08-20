@@ -1,5 +1,5 @@
-NPDev:Meteor-State
-==================
+npdev:meteor-react-state
+========================
 
 This is a simple package which provides a few small hooks for use with React in Meteor projects. The main hook, `useMeteorState` uses ReactiveDict behind the scenes, to provide a state hook which works like React's built in `useState`, but retains that state during a hot code push (HCP) event.
 
