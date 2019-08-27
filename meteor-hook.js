@@ -53,59 +53,65 @@ const runReactiveFn = Meteor.isDevelopment
   : (refs, c) => {
     refs.trackerData = refs.reactiveFn(c)
   }
-/* eslint-enable no-param-reassign */
-
-function useTracker (reactiveFn, deps, computationHandler) {
-  const { current: refs } = useRef({})
-
-  const [, forceUpdate] = useReducer(fur, 0)
-
-  refs.reactiveFn = reactiveFn
-
-  const tracked = (c) => {
-    if (c === null || c.firstRun) {
-      // If there is a computationHandler, pass it the computation, and store the
-      // result, which may be a cleanup method.
-      if (computationHandler) {
-        const cleanupHandler = computationHandler(c)
-        if (cleanupHandler) {
-          if (Meteor.isDevelopment && typeof cleanupHandler !== 'function') {
-            warn(
-              'Warning: Computation handler should return a function ' +
-              'to be used for cleanup or return nothing.'
-            )
-          }
-          refs.computationCleanup = cleanupHandler
+const clear = (refs) => {
+  if (refs.disposeId) {
+    clearTimeout(refs.disposeId)
+    delete refs.disposeId
+  }
+}
+const tracked = (refs, c, forceUpdate) => {
+  if (c.firstRun) {
+    // If there is a computationHandler, pass it the computation, and store the
+    // result, which may be a cleanup method.
+    if (refs.computationHandler) {
+      const cleanupHandler = refs.computationHandler(c)
+      if (cleanupHandler) {
+        if (Meteor.isDevelopment && typeof cleanupHandler !== 'function') {
+          warn(
+            'Warning: Computation handler should return a function ' +
+            'to be used for cleanup or return nothing.'
+          )
         }
-      }
-      // This will capture data synchronously on first run (and after deps change).
-      // Don't run if refs.isMounted === false. Do run if === undefined, because
-      // that's the first render.
-      if (refs.isMounted === false) {
-        return
-      }
-      // If isMounted is undefined, we set it to false, to indicate first run is finished.
-      if (refs.isMounted === undefined) {
-        refs.isMounted = false
-      }
-      runReactiveFn(refs, c)
-    } else {
-      // If deps are anything other than an array, stop computation and let next render
-      // handle reactiveFn. These null and undefined checks are optimizations to avoid
-      // calling Array.isArray in these cases.
-      if (deps === null || deps === undefined || !Array.isArray(deps)) {
-        dispose(refs)
-        forceUpdate()
-      } else if (refs.isMounted) {
-        // Only run the reactiveFn if the component is mounted.
-        runReactiveFn(refs, c)
-        forceUpdate()
-      } else {
-        // If not mounted, defer render until mounted.
-        refs.doDeferredRender = true
+        refs.computationCleanup = cleanupHandler
       }
     }
+    // Always run the reactiveFn on firstRun
+    runReactiveFn(refs, c)
+  } else {
+    // If deps are anything other than an array, stop computation and let next render
+    // handle reactiveFn. These null and undefined checks are optimizations to avoid
+    // calling Array.isArray in these cases.
+    if (refs.deps === null || refs.deps === undefined || !Array.isArray(refs.deps)) {
+      dispose(refs)
+      forceUpdate()
+    } else if (refs.isMounted) {
+      // Only run the reactiveFn if the component is mounted.
+      runReactiveFn(refs, c)
+      forceUpdate()
+    } else {
+      // If we got here, then a reactive update happened before the render was
+      // committed - before useEffect has run. We don't want to run the reactiveFn
+      // while we are not sure this render will be committed, so we'll dispose of the
+      // computation, and set everything up to be restarted in useEffect if needed.
+      // NOTE: If we don't run the user's reactiveFn when a computation updates, we'll
+      // leave the computation in a non-reactive state - so we'll dispose here and let
+      // the useEffect hook recreate the computation later.
+      dispose(refs)
+      // Might as well clear the timeout!
+      clear(refs)
+    }
   }
+}
+/* eslint-enable no-param-reassign */
+
+function useTrackerClient (reactiveFn, deps, computationHandler) {
+  const { current: refs } = useRef({})
+  const [, forceUpdate] = useReducer(fur, 0)
+
+  // Always have up to date deps and computations in all contexts
+  refs.reactiveFn = reactiveFn
+  refs.deps = deps
+  refs.computationHandler = computationHandler
 
   // We are abusing useMemo a little bit, using it for it's deps
   // compare, but not for it's memoization.
@@ -118,7 +124,11 @@ function useTracker (reactiveFn, deps, computationHandler) {
     // In that case, we want to opt out of the normal behavior of nested
     // Computations, where if the outer one is invalidated or stopped,
     // it stops the inner one.
-    refs.computation = Tracker.nonreactive(() => Tracker.autorun(tracked))
+    refs.computation = Tracker.nonreactive(() =>
+      Tracker.autorun((c) => {
+        tracked(refs, c, forceUpdate)
+      })
+    )
 
     // We are creating a side effect in render, which can be problematic in some cases, such as
     // Suspense or concurrent rendering or if an error is thrown and handled by an error boundary.
@@ -141,21 +151,23 @@ function useTracker (reactiveFn, deps, computationHandler) {
     // Now that we are mounted, we can set the flag, and cancel the timeout
     refs.isMounted = true
 
-    clearTimeout(refs.disposeId)
-    delete refs.disposeId
+    // We are committed, clear the dispose timeout
+    clear(refs)
 
-    // If it took longer than 1000ms to get to useEffect, we might need to restart the
-    // computation. Alternatively, we might have a queued render from a reactive update
-    // which happened before useEffect.
-    if (!refs.computation || refs.doDeferredRender) {
-      // If we have deps, set up a new computation, otherwise it will be created on next render.
-      if (!refs.computation && Array.isArray(deps)) {
-        // This also runs runReactiveFn, so no need to set up deferred render
-        refs.computation = Tracker.nonreactive(() => Tracker.autorun(tracked))
+    // If it took longer than 1000ms to get to useEffect, or a reactive update happened
+    // before useEffect, we will need to forceUpdate, and restart the computation.
+    if (!refs.computation) {
+      // If we have deps, we need to set up a new computation before forcing update.
+      // If we have NO deps, it'll be recreated and rerun on the next render.
+      if (Array.isArray(deps)) {
+        // This also runs runReactiveFn
+        refs.computation = Tracker.nonreactive(() =>
+          Tracker.autorun((c) => {
+            tracked(refs, c, forceUpdate)
+          })
+        )
       }
-      // Do a render, to make sure we are up to date with the computation data
       forceUpdate()
-      delete refs.doDeferredRender
     }
 
     // stop the computation on unmount
@@ -164,6 +176,12 @@ function useTracker (reactiveFn, deps, computationHandler) {
 
   return refs.trackerData
 }
+
+// When rendering on the server, we don't want to use the Tracker.
+// We only do the first rendering on the server so we can get the data right away
+const useTracker = Meteor.isServer
+  ? (reactiveFn) => reactiveFn()
+  : useTrackerClient
 
 export default Meteor.isDevelopment
   ? (reactiveFn, deps, computationHandler) => {
